@@ -1,4 +1,4 @@
-package contention.benchmark;
+package benchmark;
 
 import java.util.Formatter;
 import java.util.HashMap;

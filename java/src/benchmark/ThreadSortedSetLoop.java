@@ -1,25 +1,23 @@
-package contention.benchmark;
+package benchmark;
 
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
 import java.util.Vector;
 
-import contention.abstractions.CompositionalIntSet;
-import contention.abstractions.CompositionalMap;
+import abstractions.CompositionalMap;
+import abstractions.CompositionalSortedSet;
 
 /**
- * The loop executed by each thread of the integer set 
+ * The loop executed by each thread of the sorted set 
  * benchmark.
  * 
  * @author Vincent Gramoli
  * 
  */
-public class ThreadSetLoop implements Runnable {
+public class ThreadSortedSetLoop implements Runnable {
 
 	/** The instance of the running benchmark */
-	public CompositionalIntSet bench;
+	public CompositionalSortedSet<Integer> bench;
 	/** The stop flag, indicating whether the loop is over */
 	protected volatile boolean stop = false;
 	/** The pool of methods that can run */
@@ -56,7 +54,7 @@ public class ThreadSetLoop implements Runnable {
 	 */
 	int[] cdf = new int[3];
 
-	public ThreadSetLoop(short myThreadNum, CompositionalIntSet bench, Method[] methods) {
+	public ThreadSortedSetLoop(short myThreadNum, CompositionalSortedSet<Integer> bench, Method[] methods) {
 		this.myThreadNum = myThreadNum;
 		this.bench = bench;
 		this.methods = methods;
@@ -87,24 +85,24 @@ public class ThreadSetLoop implements Runnable {
 				vec.add(newInt / 2); // accepts duplicate
 
 				try {
-				  if (bench.removeAll(vec))
-					  numRemoveAll++; 
-				  else failures++; 
+					if (bench.removeAll(vec))
+						numRemoveAll++; 
+					else failures++; 
 				} catch (Exception e) {
 					System.err.println("Unsupported writeAll operations! Leave the default value of the numWriteAlls parameter (0).");
 				}
-
+				
 			} else if (coin < cdf[1]) { // 2. should we run a writeSome
 										// operation?
 
 				if (2 * (coin - cdf[0]) < cdf[1] - cdf[0]) { // add
-					if (bench.addInt((int) newInt)) {
+					if (bench.add(newInt)) {
 						numAdd++;
 					} else {
 						failures++;
 					}
 				} else { // remove
-					if (bench.removeInt((int) newInt)) {
+					if (bench.remove(newInt)) {
 						numRemove++;
 					} else
 						failures++;
@@ -117,7 +115,7 @@ public class ThreadSetLoop implements Runnable {
 
 			} else { // 4. then we should run a readSome operation
 
-				if (bench.containsInt((int) newInt))
+				if (bench.contains(newInt))
 					numContains++;
 				else
 					failures++;

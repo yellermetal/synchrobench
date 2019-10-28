@@ -1,4 +1,4 @@
-package contention.benchmark;
+package benchmark;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -7,10 +7,10 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
-import contention.abstractions.CompositionalIntSet;
-import contention.abstractions.CompositionalMap;
-import contention.abstractions.CompositionalSortedSet;
-import contention.abstractions.MaintenanceAlg;
+import abstractions.CompositionalIntSet;
+import abstractions.CompositionalMap;
+import abstractions.CompositionalSortedSet;
+import abstractions.MaintenanceAlg;
 
 /**
  * Synchrobench-java, a benchmark to evaluate the implementations of 
@@ -66,6 +66,8 @@ public class Test {
 	private long nodesTraversed;
 	public long structMods;
 	private long getCount;
+	
+	/* ---------------------------- Thread-Local Section ---------------------------- */
 
 	/** The thread-private PRNG */
 	final private static ThreadLocal<Random> s_random = new ThreadLocal<Random>() {
@@ -75,33 +77,27 @@ public class Test {
 		}
 	};
 
-	public void fill(final int range, final long size) {
-		for (long i = size; i > 0;) {
-			Integer v = s_random.get().nextInt(range);
-			switch(benchType) {
-			case INTSET:
-				if (setBench.addInt(v)) {
-					i--;
-				}
-				break;
-			case MAP:
-				if (mapBench.putIfAbsent((Integer) v, (Integer) v) == null) {
-					i--;
-				}	
-				break;
-			case SORTEDSET:
-				if (sortedBench.add((Integer) v)) {
-					i--;
-				}	
-				break;
-			default:
-				System.err.println("Wrong benchmark type");
-				System.exit(0);
-			}	
+	/* ---------------------------- Construction Section ---------------------------- */
+	
+	/**
+	 * Constructor sets up the benchmark by reading parameters and creating
+	 * threads
+	 * 
+	 * @param args
+	 *            the arguments of the command-line
+	 */
+	public Test(String[] args) throws InterruptedException {
+		printHeader();
+		try {
+			parseCommandLineParameters(args);
+		} catch (Exception e) {
+			System.err.println("Cannot parse parameters.");
+			e.printStackTrace();
 		}
+		instanciateAbstraction(Parameters.benchClassName);
+		this.throughput = new double[Parameters.iterations];
 	}
-
-
+	
 	/**
 	 * Initialize the benchmark
 	 * 
@@ -136,6 +132,101 @@ public class Test {
 		}
 	}
 	
+	/* -------------------------------- Main Section -------------------------------- */
+
+	public static void main(String[] args) throws InterruptedException {
+		boolean firstIteration = true;
+		Test test = new Test(args);
+		test.printParams();
+
+		// warming up the JVM
+		if (Parameters.warmUp != 0) {
+			try {
+				test.initThreads();
+			} catch (Exception e) {
+				System.err.println("Cannot launch operations.");
+				e.printStackTrace();
+			}
+			test.execute(Parameters.warmUp * 1000, true);
+			// give time to the JIT
+			Thread.sleep(1000);
+			if (Parameters.detailedStats)
+				test.recordPreliminaryStats();
+			test.clear();
+			test.resetStats();
+		}
+
+		// running the bench
+		for (int i = 0; i < Parameters.iterations; i++) {
+			if (!firstIteration) {
+				// give time to the JIT
+				Thread.sleep(1000);
+				test.resetStats();
+				test.clear();
+				//org.deuce.transaction.estmstats.Context.threadIdCounter.set(0);
+			}
+			try {
+				test.initThreads();
+			} catch (Exception e) {
+				System.err.println("Cannot launch operations.");
+				e.printStackTrace();
+			}
+			test.execute(Parameters.numMilliseconds, false);
+
+			if (test.setBench instanceof MaintenanceAlg) {
+				((MaintenanceAlg) test.setBench).stopMaintenance();
+				test.structMods += ((MaintenanceAlg) test.setBench)
+						.getStructMods();
+			}
+			if (test.mapBench instanceof MaintenanceAlg) {
+				((MaintenanceAlg) test.mapBench).stopMaintenance();
+				test.structMods += ((MaintenanceAlg) test.mapBench)
+						.getStructMods();
+			}
+			if (test.sortedBench instanceof MaintenanceAlg) {
+				((MaintenanceAlg) test.sortedBench).stopMaintenance();
+				test.structMods += ((MaintenanceAlg) test.sortedBench)
+						.getStructMods();
+			}
+
+			test.printBasicStats();
+			if (Parameters.detailedStats)
+				test.printDetailedStats();
+
+			firstIteration = false;
+			test.currentIteration++;
+		}
+
+		if (Parameters.iterations > 1) {
+			test.printIterationStats();
+		}
+	}
+
+	public void fill(final int range, final long size) {
+		for (long i = size; i > 0;) {
+			Integer v = s_random.get().nextInt(range);
+			switch(benchType) {
+			case INTSET:
+				if (setBench.addInt(v)) {
+					i--;
+				}
+				break;
+			case MAP:
+				if (mapBench.putIfAbsent((Integer) v, (Integer) v) == null) {
+					i--;
+				}	
+				break;
+			case SORTEDSET:
+				if (sortedBench.add((Integer) v)) {
+					i--;
+				}	
+				break;
+			default:
+				System.err.println("Wrong benchmark type");
+				System.exit(0);
+			}	
+		}
+	}
 
 	/**
 	 * Creates as many threads as requested
@@ -170,25 +261,6 @@ public class Test {
 			}
 			break;
 		}
-	}
-
-	/**
-	 * Constructor sets up the benchmark by reading parameters and creating
-	 * threads
-	 * 
-	 * @param args
-	 *            the arguments of the command-line
-	 */
-	public Test(String[] args) throws InterruptedException {
-		printHeader();
-		try {
-			parseCommandLineParameters(args);
-		} catch (Exception e) {
-			System.err.println("Cannot parse parameters.");
-			e.printStackTrace();
-		}
-		instanciateAbstraction(Parameters.benchClassName);
-		this.throughput = new double[Parameters.iterations];
 	}
 
 	/**
@@ -240,74 +312,6 @@ public class Test {
 		case SORTEDSET:
 			sortedBench.clear();
 			break;
-		}
-	}
-
-	public static void main(String[] args) throws InterruptedException {
-		boolean firstIteration = true;
-		Test test = new Test(args);
-		test.printParams();
-
-		// warming up the JVM
-		if (Parameters.warmUp != 0) {
-			try {
-				test.initThreads();
-			} catch (Exception e) {
-				System.err.println("Cannot launch operations.");
-				e.printStackTrace();
-			}
-			test.execute(Parameters.warmUp * 1000, true);
-			// give time to the JIT
-			Thread.sleep(1000);
-			if (Parameters.detailedStats)
-				test.recordPreliminaryStats();
-			test.clear();
-			test.resetStats();
-		}
-
-		// running the bench
-		for (int i = 0; i < Parameters.iterations; i++) {
-			if (!firstIteration) {
-				// give time to the JIT
-				Thread.sleep(1000);
-				test.resetStats();
-				test.clear();
-				org.deuce.transaction.estmstats.Context.threadIdCounter.set(0);
-			}
-			try {
-				test.initThreads();
-			} catch (Exception e) {
-				System.err.println("Cannot launch operations.");
-				e.printStackTrace();
-			}
-			test.execute(Parameters.numMilliseconds, false);
-
-			if (test.setBench instanceof MaintenanceAlg) {
-				((MaintenanceAlg) test.setBench).stopMaintenance();
-				test.structMods += ((MaintenanceAlg) test.setBench)
-						.getStructMods();
-			}
-			if (test.mapBench instanceof MaintenanceAlg) {
-				((MaintenanceAlg) test.mapBench).stopMaintenance();
-				test.structMods += ((MaintenanceAlg) test.mapBench)
-						.getStructMods();
-			}
-			if (test.sortedBench instanceof MaintenanceAlg) {
-				((MaintenanceAlg) test.sortedBench).stopMaintenance();
-				test.structMods += ((MaintenanceAlg) test.sortedBench)
-						.getStructMods();
-			}
-
-			test.printBasicStats();
-			if (Parameters.detailedStats)
-				test.printDetailedStats();
-
-			firstIteration = false;
-			test.currentIteration++;
-		}
-
-		if (Parameters.iterations > 1) {
-			test.printIterationStats();
 		}
 	}
 

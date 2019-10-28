@@ -1,4 +1,4 @@
-package contention.benchmark;
+package benchmark;
 
 /**
  * Parameters of the Java version of the 

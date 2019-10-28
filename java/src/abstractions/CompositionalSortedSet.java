@@ -1,4 +1,4 @@
-package contention.abstractions;
+package abstractions;
 
 import java.util.SortedSet;
 

@@ -1,4 +1,4 @@
-package contention.benchmark;
+package benchmark;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -7,7 +7,7 @@ import java.util.Random;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
-import contention.abstractions.CompositionalMap;
+import abstractions.CompositionalMap;
 
 /**
  * The loop executed by each thread of the map 

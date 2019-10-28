@@ -1,4 +1,4 @@
-package contention.benchmark;
+package benchmark;
 
 import org.deuce.Atomic;
 

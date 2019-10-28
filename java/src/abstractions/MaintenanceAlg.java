@@ -1,4 +1,4 @@
-package contention.abstractions;
+package abstractions;
 
 /*
  * Compositional map interface
