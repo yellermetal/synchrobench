@@ -4,7 +4,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
-public abstract class AbstractCompositionalIntSet implements CompositionalIntSet, CompositionalMap<Integer, Integer> {
+public abstract class AbstractCompositionalIntSet implements CompositionalIntSet, Map<Integer, Integer> {
 
     @Override
     public boolean containsKey(Object key) {

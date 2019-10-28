@@ -7,9 +7,7 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
-import abstractions.CompositionalIntSet;
 import abstractions.CompositionalMap;
-import abstractions.CompositionalSortedSet;
 import abstractions.MaintenanceAlg;
 
 /**
@@ -22,10 +20,6 @@ import abstractions.MaintenanceAlg;
 public class Test {
 
 	public static final String VERSION = "11-17-2014";
-	
-	public enum Type {
-	    INTSET, MAP, SORTEDSET
-	}
 
 	/** The array of threads executing the benchmark */
 	private Thread[] threads;
@@ -54,9 +48,6 @@ public class Test {
 	/** The total number of aborts */
 	private long aborts = 0;
 	/** The instance of the benchmark */
-	private Type benchType = null;
-	private CompositionalIntSet setBench = null;
-	private CompositionalSortedSet<Integer> sortedBench = null;
 	private CompositionalMap<Integer, Integer> mapBench = null;
 	ConcurrentHashMap<Integer, Integer> map = null;
 	/** The instance of the benchmark */
@@ -106,25 +97,16 @@ public class Test {
 	 * @return the instance of the initialized corresponding benchmark
 	 */
 	@SuppressWarnings("unchecked")
-	public void instanciateAbstraction(
-			String benchName) {
+	public void instanciateAbstraction(String benchName) {
+		
 		try {
-			Class<CompositionalMap<Integer, Integer>> benchClass = (Class<CompositionalMap<Integer, Integer>>) Class
-					.forName(benchName);
-			Constructor<CompositionalMap<Integer, Integer>> c = benchClass
-					.getConstructor();
+			Class<CompositionalMap<Integer, Integer>> benchClass = 
+					(Class<CompositionalMap<Integer, Integer>>) Class.forName(benchName);
+			Constructor<CompositionalMap<Integer, Integer>> constructor = benchClass.getConstructor();
 			methods = benchClass.getDeclaredMethods();
-			
-			if (CompositionalIntSet.class.isAssignableFrom((Class<?>) benchClass)) {
-				setBench = (CompositionalIntSet)c.newInstance();
-				benchType = Type.INTSET;
-			} else if (CompositionalMap.class.isAssignableFrom((Class<?>) benchClass)) {
-				mapBench = (CompositionalMap<Integer, Integer>) c.newInstance();
-				benchType = Type.MAP;
-			} else if (CompositionalSortedSet.class.isAssignableFrom((Class<?>) benchClass)) {
-				sortedBench = (CompositionalSortedSet<Integer>) c.newInstance();
-				benchType = Type.SORTEDSET;
-			}
+
+			if (CompositionalMap.class.isAssignableFrom((Class<?>) benchClass))
+				mapBench = (CompositionalMap<Integer, Integer>) constructor.newInstance();
 			
 		} catch (Exception e) {
 			System.err.println("Cannot find benchmark class: " + benchName);
@@ -173,19 +155,9 @@ public class Test {
 			}
 			test.execute(Parameters.numMilliseconds, false);
 
-			if (test.setBench instanceof MaintenanceAlg) {
-				((MaintenanceAlg) test.setBench).stopMaintenance();
-				test.structMods += ((MaintenanceAlg) test.setBench)
-						.getStructMods();
-			}
 			if (test.mapBench instanceof MaintenanceAlg) {
 				((MaintenanceAlg) test.mapBench).stopMaintenance();
 				test.structMods += ((MaintenanceAlg) test.mapBench)
-						.getStructMods();
-			}
-			if (test.sortedBench instanceof MaintenanceAlg) {
-				((MaintenanceAlg) test.sortedBench).stopMaintenance();
-				test.structMods += ((MaintenanceAlg) test.sortedBench)
 						.getStructMods();
 			}
 
@@ -205,26 +177,8 @@ public class Test {
 	public void fill(final int range, final long size) {
 		for (long i = size; i > 0;) {
 			Integer v = s_random.get().nextInt(range);
-			switch(benchType) {
-			case INTSET:
-				if (setBench.addInt(v)) {
-					i--;
-				}
-				break;
-			case MAP:
-				if (mapBench.putIfAbsent((Integer) v, (Integer) v) == null) {
-					i--;
-				}	
-				break;
-			case SORTEDSET:
-				if (sortedBench.add((Integer) v)) {
-					i--;
-				}	
-				break;
-			default:
-				System.err.println("Wrong benchmark type");
-				System.exit(0);
-			}	
+			if (mapBench.putIfAbsent((Integer) v, (Integer) v) == null) 
+				i--;
 		}
 	}
 
@@ -235,32 +189,14 @@ public class Test {
 	 *             if unable to launch them
 	 */
 	private void initThreads() throws InterruptedException {
-		switch(benchType) {
-		case INTSET:
-			threadLoopsSet = new ThreadSetLoop[Parameters.numThreads];
-			threads = new Thread[Parameters.numThreads];
-			for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
-				threadLoopsSet[threadNum] = new ThreadSetLoop(threadNum, setBench, methods);
-				threads[threadNum] = new Thread(threadLoopsSet[threadNum]);
-			}
-			break;
-		case MAP:
-			threadLoops = new ThreadLoop[Parameters.numThreads];
-			threads = new Thread[Parameters.numThreads];
-			for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
-				threadLoops[threadNum] = new ThreadLoop(threadNum, mapBench, methods);
-				threads[threadNum] = new Thread(threadLoops[threadNum]);
-			}
-			break;
-		case SORTEDSET:
-			threadLoopsSSet = new ThreadSortedSetLoop[Parameters.numThreads];
-			threads = new Thread[Parameters.numThreads];
-			for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
-				threadLoopsSSet[threadNum] = new ThreadSortedSetLoop(threadNum, sortedBench, methods);
-				threads[threadNum] = new Thread(threadLoopsSSet[threadNum]);
-			}
-			break;
+
+		threadLoops = new ThreadLoop[Parameters.numThreads];
+		threads = new Thread[Parameters.numThreads];
+		for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
+			threadLoops[threadNum] = new ThreadLoop(threadNum, mapBench, methods);
+			threads[threadNum] = new Thread(threadLoops[threadNum]);
 		}
+
 	}
 
 	/**
@@ -268,8 +204,8 @@ public class Test {
 	 * 
 	 * @throws InterruptedException
 	 */
-	private void execute(int milliseconds, boolean maint)
-			throws InterruptedException {
+	private void execute(int milliseconds, boolean maint) throws InterruptedException {
+		
 		long startTime;
 		fill(Parameters.range, Parameters.size);
 		Thread.sleep(5000);
@@ -279,20 +215,8 @@ public class Test {
 		try {
 			Thread.sleep(milliseconds);
 		} finally {
-			switch(benchType) {
-			case INTSET:
-				for (ThreadSetLoop threadLoop : threadLoopsSet)
-					threadLoop.stopThread();
-				break;
-			case MAP:
-				for (ThreadLoop threadLoop : threadLoops)
-					threadLoop.stopThread();
-				break;
-			case SORTEDSET:
-				for (ThreadSortedSetLoop threadLoop : threadLoopsSSet)
-					threadLoop.stopThread();
-				break;
-			}
+			for (ThreadLoop threadLoop : threadLoops)
+				threadLoop.stopThread();
 		}
 		for (Thread thread : threads)
 			thread.join();
@@ -302,20 +226,10 @@ public class Test {
 	}
 
 	public void clear() {
-		switch(benchType) {
-		case INTSET:
-			setBench.clear();
-			break;
-		case MAP:
 			mapBench.clear();
-			break;
-		case SORTEDSET:
-			sortedBench.clear();
-			break;
-		}
 	}
 
-	/* ---------------- Input/Output -------------- */
+	/* ----------------------------- Input/Output Section --------------------------- */
 
 	/**
 	 * Parse the parameters on the command line
@@ -494,22 +408,7 @@ public class Test {
 	 */
 	private void printBasicStats() {
 		for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
-			switch(benchType) {
-			case INTSET:
-				numAdd += threadLoopsSet[threadNum].numAdd;
-				numRemove += threadLoopsSet[threadNum].numRemove;
-				numAddAll += threadLoopsSet[threadNum].numAddAll;
-				numRemoveAll += threadLoopsSet[threadNum].numRemoveAll;
-				numSize += threadLoopsSet[threadNum].numSize;
-				numContains += threadLoopsSet[threadNum].numContains;
-				failures += threadLoopsSet[threadNum].failures;
-				total += threadLoopsSet[threadNum].total;
-				aborts += threadLoopsSet[threadNum].aborts;
-				getCount += threadLoopsSet[threadNum].getCount;
-				nodesTraversed += threadLoopsSet[threadNum].nodesTraversed;
-				structMods += threadLoopsSet[threadNum].structMods;
-				break;
-			case MAP:
+
 				numAdd += threadLoops[threadNum].numAdd;
 				numRemove += threadLoops[threadNum].numRemove;
 				numAddAll += threadLoops[threadNum].numAddAll;
@@ -522,22 +421,6 @@ public class Test {
 				getCount += threadLoops[threadNum].getCount;
 				nodesTraversed += threadLoops[threadNum].nodesTraversed;
 				structMods += threadLoops[threadNum].structMods;
-				break;
-			case SORTEDSET:
-				numAdd += threadLoopsSSet[threadNum].numAdd;
-				numRemove += threadLoopsSSet[threadNum].numRemove;
-				numAddAll += threadLoopsSSet[threadNum].numAddAll;
-				numRemoveAll += threadLoopsSSet[threadNum].numRemoveAll;
-				numSize += threadLoopsSSet[threadNum].numSize;
-				numContains += threadLoopsSSet[threadNum].numContains;
-				failures += threadLoopsSSet[threadNum].failures;
-				total += threadLoopsSSet[threadNum].total;
-				aborts += threadLoopsSSet[threadNum].aborts;
-				getCount += threadLoopsSSet[threadNum].getCount;
-				nodesTraversed += threadLoopsSSet[threadNum].nodesTraversed;
-				structMods += threadLoopsSSet[threadNum].structMods;
-				break;
-			}
 		}
 		throughput[currentIteration] = ((double) total / elapsedTime);
 		printLine('-');
@@ -580,20 +463,11 @@ public class Test {
 		System.out.println("    unsuccessful ops:      \t" + failures + "\t( "
 				+ formatDouble(((double) failures / (double) total) * 100)
 				+ " %)");
-		switch(benchType) {
-		case INTSET:
-			System.out.println("  Final size:              \t" + setBench.size());
-			if (Parameters.numWriteAlls == 0) System.out.println("  Expected size:           \t" + (Parameters.size+numAdd-numRemove));
-			break;
-		case MAP:
-			System.out.println("  Final size:              \t" + mapBench.size());
-			if (Parameters.numWriteAlls == 0) System.out.println("  Expected size:           \t" + (Parameters.size+numAdd-numRemove));
-			break;
-		case SORTEDSET:
-			System.out.println("  Final size:              \t" + sortedBench.size());
-			if (Parameters.numWriteAlls == 0) System.out.println("  Expected size:           \t" + (Parameters.size+numAdd-numRemove));
-			break;
-		}
+
+
+		System.out.println("  Final size:              \t" + mapBench.size());
+		if (Parameters.numWriteAlls == 0) System.out.println("  Expected size:           \t" + (Parameters.size+numAdd-numRemove));
+
 		//System.out.println("  Other size:              \t" + map.size());
 
 		// TODO what should print special for maint data structures
@@ -615,25 +489,9 @@ public class Test {
 		// .getBottomLevelRaiseCount());
 		// }
 
-		switch(benchType) {
-		case INTSET:
-			if (setBench instanceof MaintenanceAlg) {
-				System.out.println("  #nodes (inc. deleted): \t"
-						+ ((MaintenanceAlg) setBench).numNodes());
-			}
-			break;
-		case MAP:
-			if (mapBench instanceof MaintenanceAlg) {
-				System.out.println("  #nodes (inc. deleted): \t"
-						+ ((MaintenanceAlg) mapBench).numNodes());
-			}
-			break;
-		case SORTEDSET:
-			if (mapBench instanceof MaintenanceAlg) {
-				System.out.println("  #nodes (inc. deleted): \t"
-						+ ((MaintenanceAlg) sortedBench).numNodes());
-			}
-			break;
+		if (mapBench instanceof MaintenanceAlg) {
+			System.out.println("  #nodes (inc. deleted): \t"
+					+ ((MaintenanceAlg) mapBench).numNodes());
 		}
 
 	}
@@ -674,23 +532,7 @@ public class Test {
 	public void resetStats() {
 
 		for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
-			switch (benchType) {
-			case INTSET:
 			
-			threadLoopsSet[threadNum].numAdd = 0;
-			threadLoopsSet[threadNum].numRemove = 0;
-			threadLoopsSet[threadNum].numAddAll = 0;
-			threadLoopsSet[threadNum].numRemoveAll = 0;
-			threadLoopsSet[threadNum].numSize = 0;
-			threadLoopsSet[threadNum].numContains = 0;
-			threadLoopsSet[threadNum].failures = 0;
-			threadLoopsSet[threadNum].total = 0;
-			threadLoopsSet[threadNum].aborts = 0;
-			threadLoopsSet[threadNum].nodesTraversed = 0;
-			threadLoopsSet[threadNum].getCount = 0;
-			threadLoopsSet[threadNum].structMods = 0;
-			break;
-			case MAP:
 			threadLoops[threadNum].numAdd = 0;
 			threadLoops[threadNum].numRemove = 0;
 			threadLoops[threadNum].numAddAll = 0;
@@ -703,24 +545,9 @@ public class Test {
 			threadLoops[threadNum].nodesTraversed = 0;
 			threadLoops[threadNum].getCount = 0;
 			threadLoops[threadNum].structMods = 0;
-			break;
-			case SORTEDSET:
-			threadLoopsSSet[threadNum].numAdd = 0;
-			threadLoopsSSet[threadNum].numRemove = 0;
-			threadLoopsSSet[threadNum].numAddAll = 0;
-			threadLoopsSSet[threadNum].numRemoveAll = 0;
-			threadLoopsSSet[threadNum].numSize = 0;
-			threadLoopsSSet[threadNum].numContains = 0;
-			threadLoopsSSet[threadNum].failures = 0;
-			threadLoopsSSet[threadNum].total = 0;
-			threadLoopsSSet[threadNum].aborts = 0;
-			threadLoopsSSet[threadNum].nodesTraversed = 0;
-			threadLoopsSSet[threadNum].getCount = 0;
-			threadLoopsSSet[threadNum].structMods = 0;
-			break;
-			}
 
 		}
+		
 		numAdd = 0;
 		numRemove = 0;
 		numAddAll = 0;

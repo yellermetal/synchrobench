@@ -19,7 +19,7 @@ import abstractions.CompositionalMap;
 public class ThreadLoop implements Runnable {
 
 	/** The instance of the running benchmark */
-	public CompositionalMap<Integer, Integer> bench;
+	public Map<Integer, Integer> bench;
 	/** The stop flag, indicating whether the loop is over */
 	protected volatile boolean stop = false;
 	/** The pool of methods that can run */
@@ -57,7 +57,7 @@ public class ThreadLoop implements Runnable {
 	int[] cdf = new int[3];
 
 	public ThreadLoop(short myThreadNum,
-			CompositionalMap<Integer, Integer> bench, Method[] methods) {
+			Map<Integer, Integer> bench, Method[] methods) {
 		this.myThreadNum = myThreadNum;
 		this.bench = bench;
 		this.methods = methods;
@@ -131,9 +131,9 @@ public class ThreadLoop implements Runnable {
 					+ numAdd + numRemoveAll + numAddAll;
 		}
 		// System.out.println(numAdd + " " + numRemove + " " + failures);
-		this.getCount = CompositionalMap.counts.get().getCount;
-		this.nodesTraversed = CompositionalMap.counts.get().nodesTraversed;
-		this.structMods = CompositionalMap.counts.get().structMods;
+		this.getCount = Map.counts.get().getCount;
+		this.nodesTraversed = Map.counts.get().nodesTraversed;
+		this.structMods = Map.counts.get().structMods;
 		System.out.println("Thread #" + myThreadNum + " finished.");
 	}
 }

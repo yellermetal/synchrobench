@@ -14,8 +14,8 @@ public class Parameters {
     	numWriteAlls = 0,
     	numSnapshots = 0,
     	range = 2048,
-	size = 1024,
-	warmUp = 5,
+		size = 1024,
+		warmUp = 5,
     	iterations = 1;
     
     public static boolean detailedStats = true;

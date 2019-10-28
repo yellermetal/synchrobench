@@ -127,9 +127,9 @@ public class ThreadSetLoop implements Runnable {
 			assert total == failures + numContains + numSize + numRemove
 					+ numAdd + numRemoveAll + numAddAll;
 		}
-		this.getCount = CompositionalMap.counts.get().getCount;
-		this.nodesTraversed = CompositionalMap.counts.get().nodesTraversed;
-		this.structMods = CompositionalMap.counts.get().structMods;
+		this.getCount = Map.counts.get().getCount;
+		this.nodesTraversed = Map.counts.get().nodesTraversed;
+		this.structMods = Map.counts.get().structMods;
 		System.out.println("Thread #" + myThreadNum + " finished.");
 	}
 }
