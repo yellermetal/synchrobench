@@ -237,12 +237,6 @@ public class Statistics {
 		return total;
 	}
 
-	// public static String getAbortPer() {
-	// int abortsSum = 0, totalStarts = 0;
-	// for (Map.Entry<Integer, Statistics> entry : statsMap.entrySet()) {
-	// Statistics statistics = entry.getValue();
-	// abortsSum += statistics.getAborts(AbortType.ALL);
-	// }
 
 	public static String getTotalAbortsPercentage(AbortType type) {
 		int abortsSum = 0, totalStarts = 0;
@@ -400,24 +394,6 @@ public class Statistics {
 		// getTxAttemptsHistogram(sb);
 		return sb.toString();
 	}
-
-	/*
-	 * private static void getTxAttemptsHistogram(StringBuilder sb) { int[]
-	 * totalTxDurationHistCounters = new int[txAttemptsHistBins.length]; for
-	 * (Map.Entry<Integer, Statistics> entry : statsMap.entrySet()) { Statistics
-	 * statistics = entry.getValue(); for (int i=0;
-	 * i<totalTxDurationHistCounters.length; i++) {
-	 * totalTxDurationHistCounters[i] += statistics.txAttemptsHistCounters[i]; }
-	 * } int totalCommits = getTotalCommits(); double[] totalTxDurationHist =
-	 * new double[txAttemptsHistBins.length]; for (int i=0;
-	 * i<totalTxDurationHist.length; i++) { totalTxDurationHist[i] =
-	 * percentage(totalTxDurationHistCounters[i], totalCommits); }
-	 * 
-	 * sb.append("\n  Transaction Attempts Histogram:\n"); for (int i=0;
-	 * i<totalTxDurationHist.length; i++) { sb.append("  # attempts <= ");
-	 * sb.append(txAttemptsHistBins[i]); sb.append(": ");
-	 * sb.append(formatDouble(totalTxDurationHist[i])); sb.append("%\n"); } }
-	 */
 
 	private static void addStat(String title, Object value, StringBuilder sb) {
 		sb.append("  ");

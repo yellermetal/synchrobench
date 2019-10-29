@@ -2,9 +2,9 @@ package benchmark;
 
 /**
  * Parameters of the Java version of the 
- * Synchrobench benchmark.
+ * SynchrobenchTDSL benchmark.
  *
- * @author Vincent Gramoli
+ * @author Ariel Livshits (based on "Syncrobench" by Vincent Gramoli)
  */
 public class Parameters {
     
@@ -16,9 +16,10 @@ public class Parameters {
     	range = 2048,
 		size = 1024,
 		warmUp = 5,
-    	iterations = 1;
+    	iterations = 1,
+    	minTxOps = 10;
     
     public static boolean detailedStats = true;
 
-    public static String benchClassName = new String("skiplists.lockfree.NonBlockingFriendlySkipListMap");
+    public static String benchClassName = new String("structures.tdslSkiplist");
 }

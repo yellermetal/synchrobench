@@ -5,54 +5,47 @@ import java.lang.reflect.Method;
 import java.util.Formatter;
 import java.util.Locale;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
+//import java.util.concurrent.ConcurrentHashMap;
 
-import abstractions.CompositionalMap;
-import abstractions.MaintenanceAlg;
+import structures.Skiplist;
 
 /**
- * Synchrobench-java, a benchmark to evaluate the implementations of 
- * high level abstractions including Map and Set.
+ * SynchrobenchTDSL-java, a benchmark to evaluate the implementations of 
+ * transactional and non-transactionl skiplists.
  * 
- * @author Vincent Gramoli
+ * @author Ariel Livshits (based on "Syncrobench" by Vincent Gramoli)
  * 
  */
 public class Test {
 
-	public static final String VERSION = "11-17-2014";
+	public static final String VERSION = "29-10-2019";
 
-	/** The array of threads executing the benchmark */
+	/* The array of threads executing the benchmark */
 	private Thread[] threads;
-	/** The array of runnable thread codes */
-	private ThreadLoop[] threadLoops;
-	private ThreadSetLoop[] threadLoopsSet;
-	private ThreadSortedSetLoop[] threadLoopsSSet;
-	/** The observed duration of the benchmark */
+	/* The array of runnable thread codes */
+	private TxThread[] threadLoops;
+	/* The observed duration of the benchmark */
 	private double elapsedTime;
-	/** The throughput */
+	/* The throughput */
 	private double[] throughput = null;
-	/** The iteration */
+	/* The iteration */
 	private int currentIteration = 0;
 
-	/** The total number of operations for all threads */
+	/* The total number of operations for all threads */
 	private long total = 0;
-	/** The total number of successful operations for all threads */
+	/* The total number of successful operations for all threads */
 	private long numAdd = 0;
 	private long numRemove = 0;
 	private long numAddAll = 0;
 	private long numRemoveAll = 0;
 	private long numSize = 0;
 	private long numContains = 0;
-	/** The total number of failed operations for all threads */
+	/* The total number of failed operations for all threads */
 	private long failures = 0;
-	/** The total number of aborts */
+	/* The total number of aborts */
 	private long aborts = 0;
-	/** The instance of the benchmark */
-	private CompositionalMap<Integer, Integer> mapBench = null;
-	ConcurrentHashMap<Integer, Integer> map = null;
-	/** The instance of the benchmark */
-	/** The benchmark methods */
-	private Method[] methods;
+	/* The instance of the benchmark */
+	private Skiplist<Integer, Object> mapBench = null;
 
 	private long nodesTraversed;
 	public long structMods;
@@ -60,7 +53,7 @@ public class Test {
 	
 	/* ---------------------------- Thread-Local Section ---------------------------- */
 
-	/** The thread-private PRNG */
+	/* The thread-private PRNG */
 	final private static ThreadLocal<Random> s_random = new ThreadLocal<Random>() {
 		@Override
 		protected synchronized Random initialValue() {
@@ -100,13 +93,12 @@ public class Test {
 	public void instanciateAbstraction(String benchName) {
 		
 		try {
-			Class<CompositionalMap<Integer, Integer>> benchClass = 
-					(Class<CompositionalMap<Integer, Integer>>) Class.forName(benchName);
-			Constructor<CompositionalMap<Integer, Integer>> constructor = benchClass.getConstructor();
-			methods = benchClass.getDeclaredMethods();
+			Class<Skiplist<Integer, Object>> benchClass = 
+					(Class<Skiplist<Integer, Object>>) Class.forName(benchName);
+			Constructor<Skiplist<Integer, Object>> constructor = benchClass.getConstructor();
 
-			if (CompositionalMap.class.isAssignableFrom((Class<?>) benchClass))
-				mapBench = (CompositionalMap<Integer, Integer>) constructor.newInstance();
+			if (Skiplist.class.isAssignableFrom((Class<?>) benchClass))
+				mapBench = (Skiplist<Integer, Object>) constructor.newInstance();
 			
 		} catch (Exception e) {
 			System.err.println("Cannot find benchmark class: " + benchName);
@@ -117,55 +109,24 @@ public class Test {
 	/* -------------------------------- Main Section -------------------------------- */
 
 	public static void main(String[] args) throws InterruptedException {
-		boolean firstIteration = true;
+		
 		Test test = new Test(args);
 		test.printParams();
 
-		// warming up the JVM
-		if (Parameters.warmUp != 0) {
-			try {
-				test.initThreads();
-			} catch (Exception e) {
-				System.err.println("Cannot launch operations.");
-				e.printStackTrace();
-			}
-			test.execute(Parameters.warmUp * 1000, true);
-			// give time to the JIT
-			Thread.sleep(1000);
-			if (Parameters.detailedStats)
-				test.recordPreliminaryStats();
-			test.clear();
-			test.resetStats();
-		}
-
 		// running the bench
 		for (int i = 0; i < Parameters.iterations; i++) {
-			if (!firstIteration) {
-				// give time to the JIT
-				Thread.sleep(1000);
-				test.resetStats();
-				test.clear();
-				//org.deuce.transaction.estmstats.Context.threadIdCounter.set(0);
-			}
+
 			try {
 				test.initThreads();
 			} catch (Exception e) {
 				System.err.println("Cannot launch operations.");
 				e.printStackTrace();
 			}
-			test.execute(Parameters.numMilliseconds, false);
-
-			if (test.mapBench instanceof MaintenanceAlg) {
-				((MaintenanceAlg) test.mapBench).stopMaintenance();
-				test.structMods += ((MaintenanceAlg) test.mapBench)
-						.getStructMods();
-			}
+			test.execute(Parameters.numMilliseconds);
 
 			test.printBasicStats();
 			if (Parameters.detailedStats)
 				test.printDetailedStats();
-
-			firstIteration = false;
 			test.currentIteration++;
 		}
 
@@ -190,10 +151,10 @@ public class Test {
 	 */
 	private void initThreads() throws InterruptedException {
 
-		threadLoops = new ThreadLoop[Parameters.numThreads];
+		threadLoops = new TxThread[Parameters.numThreads];
 		threads = new Thread[Parameters.numThreads];
-		for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
-			threadLoops[threadNum] = new ThreadLoop(threadNum, mapBench, methods);
+		for (int threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
+			threadLoops[threadNum] = new TxThread(threadNum, mapBench);
 			threads[threadNum] = new Thread(threadLoops[threadNum]);
 		}
 
@@ -204,7 +165,7 @@ public class Test {
 	 * 
 	 * @throws InterruptedException
 	 */
-	private void execute(int milliseconds, boolean maint) throws InterruptedException {
+	private void execute(int milliseconds) throws InterruptedException {
 		
 		long startTime;
 		fill(Parameters.range, Parameters.size);
@@ -215,7 +176,7 @@ public class Test {
 		try {
 			Thread.sleep(milliseconds);
 		} finally {
-			for (ThreadLoop threadLoop : threadLoops)
+			for (TxThread threadLoop : threadLoops)
 				threadLoop.stopThread();
 		}
 		for (Thread thread : threads)
@@ -418,9 +379,6 @@ public class Test {
 				failures += threadLoops[threadNum].failures;
 				total += threadLoops[threadNum].total;
 				aborts += threadLoops[threadNum].aborts;
-				getCount += threadLoops[threadNum].getCount;
-				nodesTraversed += threadLoops[threadNum].nodesTraversed;
-				structMods += threadLoops[threadNum].structMods;
 		}
 		throughput[currentIteration] = ((double) total / elapsedTime);
 		printLine('-');
@@ -463,37 +421,6 @@ public class Test {
 		System.out.println("    unsuccessful ops:      \t" + failures + "\t( "
 				+ formatDouble(((double) failures / (double) total) * 100)
 				+ " %)");
-
-
-		System.out.println("  Final size:              \t" + mapBench.size());
-		if (Parameters.numWriteAlls == 0) System.out.println("  Expected size:           \t" + (Parameters.size+numAdd-numRemove));
-
-		//System.out.println("  Other size:              \t" + map.size());
-
-		// TODO what should print special for maint data structures
-		// if (bench instanceof CASSpecFriendlyTreeLockFree) {
-		// System.out.println("  Balance:              \t"
-		// + ((CASSpecFriendlyTreeLockFree) bench).getBalance());
-		// }
-		// if (bench instanceof SpecFriendlyTreeLockFree) {
-		// System.out.println("  Balance:              \t"
-		// + ((SpecFriendlyTreeLockFree) bench).getBalance());
-		// }
-		// if (bench instanceof TransFriendlyMap) {
-		// System.out.println("  Balance:              \t"
-		// + ((TransFriendlyMap) bench).getBalance());
-		// }
-		// if (bench instanceof UpdatedTransFriendlySkipList) {
-		// System.out.println("  Bottom changes:              \t"
-		// + ((UpdatedTransFriendlySkipList) bench)
-		// .getBottomLevelRaiseCount());
-		// }
-
-		if (mapBench instanceof MaintenanceAlg) {
-			System.out.println("  #nodes (inc. deleted): \t"
-					+ ((MaintenanceAlg) mapBench).numNodes());
-		}
-
 	}
 
 	/**
@@ -542,9 +469,6 @@ public class Test {
 			threadLoops[threadNum].failures = 0;
 			threadLoops[threadNum].total = 0;
 			threadLoops[threadNum].aborts = 0;
-			threadLoops[threadNum].nodesTraversed = 0;
-			threadLoops[threadNum].getCount = 0;
-			threadLoops[threadNum].structMods = 0;
 
 		}
 		
