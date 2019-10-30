@@ -1,5 +1,8 @@
 package benchmark;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Parameters of the Java version of the 
  * SynchrobenchTDSL benchmark.
@@ -8,18 +11,26 @@ package benchmark;
  */
 public class Parameters {
     
-    public static int numThreads = 1, 
-    	numMilliseconds = 5000,
-    	numWrites = 40,
-    	numWriteAlls = 0,
-    	numSnapshots = 0,
+    public static int
+    	numThreads = 1000,
     	range = 2048,
 		size = 1024,
-		warmUp = 5,
     	iterations = 1,
-    	minTxOps = 10;
+    	minTxOps = 10,
+    	minNonTxOps = 10;
     
-    public static boolean detailedStats = true;
+    public static double ROTxFrac = 0.5;
+    
+    public static boolean detailedStats = false;
 
     public static String benchClassName = new String("structures.tdslSkiplist");
+    
+    public static List<String> paramNames() {
+    	return Arrays.asList( "numThreads", "range", "size", "minTxOps", "minNonTxOps", "ReadOnlyFrac" );
+    }
+    
+    public static List<String> paramValues() {
+    	return Arrays.asList( String.valueOf(numThreads), String.valueOf(range), String.valueOf(size), 
+    						  String.valueOf(minTxOps), String.valueOf(minNonTxOps), String.valueOf(ROTxFrac) );
+    }
 }

@@ -1,6 +1,7 @@
 package benchmark;
 
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 
 import structures.Skiplist;
 import transactionLib.RangeIterator;
@@ -32,7 +33,8 @@ public class TxThread extends Transaction {
 	Random rand = new Random();
 	public TxType txType;
 
-	public TxThread(int myThreadNum, Skiplist<Integer, Object> bench, TxType txType) {
+	public TxThread(int myThreadNum, Skiplist<Integer, Object> bench, CountDownLatch latch, TxType txType) {
+		super(latch);
 		this.myThreadNum = myThreadNum;
 		this.bench = bench;
 		this.txType = txType;
