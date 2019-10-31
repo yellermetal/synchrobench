@@ -12,10 +12,10 @@ import java.util.List;
 public class Parameters {
     
     public static int
-    	numThreads = 1000,
+    	numThreads = 128,
     	range = 2048,
 		size = 1024,
-    	iterations = 1,
+    	iterations = 100,
     	minTxOps = 10,
     	minNonTxOps = 10;
     

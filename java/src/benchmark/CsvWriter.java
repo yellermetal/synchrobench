@@ -2,6 +2,7 @@ package benchmark;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 
 public class CsvWriter extends FileWriter {
 
@@ -13,7 +14,7 @@ public class CsvWriter extends FileWriter {
 		super(filename, append);
 	}
 	
-	private String convertToCSV(String[] data) {
+	private String convertToCSV(ArrayList<String> data) {
 	    String csvStr = "";
 	    for (String entry : data)
 	    	csvStr += "," + entry;
@@ -22,8 +23,8 @@ public class CsvWriter extends FileWriter {
 	    return csvStr.substring(1);
 	}
 	
-	public void writeToCsv(String[] data) throws IOException {
-		append(convertToCSV(data));
+	public void writeToCsv(ArrayList<String> csvLine) throws IOException {
+		append(convertToCSV(csvLine));
 	}
 
 }

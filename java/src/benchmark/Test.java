@@ -1,7 +1,6 @@
 package benchmark;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -24,14 +23,14 @@ public class Test {
 	public static final String VERSION = "29-10-2019";
 
 	/* The array of threads executing the benchmark */
-	private List<Thread> threads = new ArrayList<Thread>();
+	private Thread[] threads = new Thread[Parameters.numThreads];
 	/* The array of runnable thread codes */
-	private List<TxThread> txs = new ArrayList<TxThread>();
+	private TxThread[] txs = new TxThread[Parameters.numThreads];
 	/* The observed duration of the benchmark */
-	private double elapsedTime;
+	private double elapsedTime = 0;
 	/* The throughput */
-	private double[] throughputOps = null;
-	private double[] throughputTxs = null;
+	private long throughputOps = 0;
+	private long throughputTxs = 0;
 	/* The iteration */
 	private int currentIteration = 0;
 
@@ -43,9 +42,9 @@ public class Test {
 	/* The total number of aborts */
 	private long aborts = 0;
 	/* The instance of the benchmark */
-	private Skiplist<Integer, Object> skiplistBench = null;
+	protected Skiplist<Integer, Object> skiplistBench = null;
 	
-	private RunnableFactory runnableFactory;
+	private RunnableFactory runnableFactory = new RunnableFactory();
 	private CountDownLatch latch;
 
 	
@@ -76,9 +75,6 @@ public class Test {
 			System.err.println("Cannot parse parameters.");
 			e.printStackTrace();
 		}
-		instanciateAbstraction(Parameters.benchClassName);
-		this.throughputOps = new double[Parameters.iterations];
-		this.throughputTxs = new double[Parameters.iterations];
 	}
 	
 	/**
@@ -99,6 +95,8 @@ public class Test {
 			if (Skiplist.class.isAssignableFrom((Class<?>) benchClass))
 				skiplistBench = (Skiplist<Integer, Object>) constructor.newInstance();
 			
+			fill(Parameters.range, Parameters.size);
+			
 		} catch (Exception e) {
 			System.err.println("Cannot find benchmark class: " + benchName);
 			System.exit(-1);
@@ -113,8 +111,11 @@ public class Test {
 		//test.printParams();
 
 		// running the bench
-		for (int i = 0; i < Parameters.iterations; i++) {
-
+		for (; test.currentIteration < Parameters.iterations; test.currentIteration++) {
+			test.instanciateAbstraction(Parameters.benchClassName);
+			
+			System.out.println("Currently running experiment #" + String.valueOf(test.currentIteration));
+			
 			try {
 				test.initThreads();
 			} catch (Exception e) {
@@ -123,18 +124,18 @@ public class Test {
 			}
 			test.execute();
 			test.printBasicStats();
-			test.currentIteration++;
+			test.resetStats();
 		}
 	}
-
+	
 	public void fill(final int range, final long size) {
 		for (long i = size; i > 0;) {
 			Integer v = s_random.get().nextInt(range);
-			if (skiplistBench.putIfAbsent((Integer) v, (Integer) v) == null) 
+			if (skiplistBench.putIfAbsent((Integer) v, (Integer) v) == null)
 				i--;
 		}
 	}
-
+			
 	/**
 	 * Creates as many threads as requested
 	 * 
@@ -145,9 +146,8 @@ public class Test {
 		
 		latch = new CountDownLatch(1);		
 		for (int threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
-			TxThread runnable = (TxThread) runnableFactory.getInstance(threadNum, skiplistBench, latch);
-			txs.add(runnable);
-			threads.add(new Thread(runnable));
+			txs[threadNum] = (TxThread) runnableFactory.getInstance(threadNum, skiplistBench, latch);
+			threads[threadNum] = new Thread(txs[threadNum]);
 		}
 
 	}
@@ -160,8 +160,6 @@ public class Test {
 	private void execute() throws InterruptedException {
 		
 		long startTime;
-		
-		fill(Parameters.range, Parameters.size);
 		startTime = System.currentTimeMillis();
 		for (Thread thread : threads)
 			thread.start();
@@ -346,13 +344,13 @@ public class Test {
 		if (!exists) {
 			
 			ArrayList<String> header = new ArrayList<String> (Arrays.asList("Iteration", "throughputOps", "throughputTxs", 
-					"aborts", "elapsedTime", "operations"));
+					"aborts", "elapsedTime", "numReadOps", "numWriteOps", "operations"));
 			
 			List<String> paramNames = Parameters.paramNames();
 			for (int i = 0; i < paramNames.size(); i++) 
 				header.add(i + 1, paramNames.get(i));
 			
-			csvWriter.writeToCsv((String [])header.toArray());
+			csvWriter.writeToCsv(header);
 		}
 		
 		return csvWriter;
@@ -366,21 +364,25 @@ public class Test {
 	private void printBasicStats() throws IOException {
 		for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
 
-				numReadOps += txs.get(threadNum).readOps;
-				numWriteOps += txs.get(threadNum).writeOps;
-				aborts += txs.get(threadNum).aborts;
+				numReadOps += txs[threadNum].readOps;
+				numWriteOps += txs[threadNum].writeOps;
+				aborts += txs[threadNum].aborts;
 		}
 		total = numReadOps + numWriteOps;
-		throughputOps[currentIteration] = ((double) total / elapsedTime);
-		throughputTxs[currentIteration] = ((double) Parameters.numThreads / elapsedTime);
+		throughputOps = (long) ((double) total / elapsedTime);
+		throughputTxs = (long) ((double) Parameters.numThreads / elapsedTime);
 		printLine('-');
 		System.out.println("Benchmark statistics");
 		printLine('-');
-		System.out.println("  Throughput (ops/s):      \t" + throughputOps[currentIteration]);
-		System.out.println("  Throughput (Tx/s):       \t" + throughputTxs[currentIteration]);
+		System.out.println("  Throughput (ops/s):      \t" + throughputOps);
+		System.out.println("  Throughput (Tx/s):       \t" + throughputTxs);
 		System.out.println("  Aborts:       		   \t" + aborts);
 		System.out.println("  Elapsed time (s):        \t" + elapsedTime);
+		System.out.println("  Number of ReadOps:       \t" + numReadOps);
+		System.out.println("  Number of WriteOps:      \t" + numWriteOps);
 		System.out.println("  Operations:              \t" + total + "\t( 100 %)");
+		
+		printLine('*');
 		
 		CsvWriter csvWriter = initCSV();
 		List<String> paramValues = Parameters.paramValues();
@@ -390,16 +392,28 @@ public class Test {
 		for (int i = 0; i < paramValues.size(); i++) 
 			csvLine.add(i + 1, paramValues.get(i));
 		
-		csvLine.add(String.valueOf(throughputOps[currentIteration]));
-		csvLine.add(String.valueOf(throughputTxs[currentIteration]));
+		csvLine.add(String.valueOf(throughputOps));
+		csvLine.add(String.valueOf(throughputTxs));
 		csvLine.add(String.valueOf(aborts));
 		csvLine.add(String.valueOf(elapsedTime));
+		csvLine.add(String.valueOf(numReadOps));
+		csvLine.add(String.valueOf(numWriteOps));
 		csvLine.add(String.valueOf(total));
 		
-		csvWriter.writeToCsv((String[]) csvLine.toArray());		
+		csvWriter.writeToCsv(csvLine);		
 		
 		csvWriter.flush();
 		csvWriter.close();		
+	}
+	
+	private void resetStats() {
+		elapsedTime = 0;
+		throughputOps = 0;
+		throughputTxs = 0;		
+		total = 0;
+		numReadOps = 0;
+		numWriteOps = 0;
+		aborts = 0;
 	}
 
 }
