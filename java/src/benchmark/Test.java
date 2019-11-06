@@ -25,7 +25,7 @@ public class Test {
 	/* The array of threads executing the benchmark */
 	private Thread[] threads = new Thread[Parameters.numThreads];
 	/* The array of runnable thread codes */
-	private TxThread[] txs = new TxThread[Parameters.numThreads];
+	private Runnable[] runnables = new Runnable[Parameters.numThreads];
 	/* The observed duration of the benchmark */
 	private double elapsedTime = 0;
 	/* The throughput */
@@ -146,8 +146,18 @@ public class Test {
 		
 		latch = new CountDownLatch(1);		
 		for (int threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
-			txs[threadNum] = (TxThread) runnableFactory.getInstance(threadNum, skiplistBench, latch);
-			threads[threadNum] = new Thread(txs[threadNum]);
+			switch (Parameters.testType) {
+				case "tdsl.tx":
+					runnables[threadNum] = runnableFactory.getTxInstance(threadNum, skiplistBench, latch);
+					break;
+				case "tdsl.ntx":
+					runnables[threadNum] = runnableFactory.getInstance(threadNum, skiplistBench, latch);
+					break;
+				default:
+					System.err.println("Wrong test type");
+					System.exit(0);
+			}		
+			threads[threadNum] = new Thread(runnables[threadNum]);
 		}
 
 	}
@@ -205,6 +215,8 @@ public class Test {
 				else if (currentArg.equals("--benchmark")
 						|| currentArg.equals("-b"))
 					Parameters.benchClassName = "structures." + optionValue;
+				else if (currentArg.equals("--type"))
+					Parameters.testType = optionValue;
 				else if (currentArg.equals("--iterations")
 						|| currentArg.equals("-n"))
 					Parameters.iterations = Integer.parseInt(optionValue);
@@ -335,7 +347,9 @@ public class Test {
 
 	private CsvWriter initCSV() throws IOException {
 		
-		String path = System.getProperty("user.dir") + File.separator + Parameters.benchClassName + ".csv";
+		String path = System.getProperty("user.dir") + File.separator + 
+													   Parameters.benchClassName + 
+													   '_' + Parameters.testType + ".csv";
 		
 		boolean exists = (new File(path)).exists();
 			
@@ -364,9 +378,18 @@ public class Test {
 	private void printBasicStats() throws IOException {
 		for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
 
-				numReadOps += txs[threadNum].readOps;
-				numWriteOps += txs[threadNum].writeOps;
-				aborts += txs[threadNum].aborts;
+			if (runnables[threadNum] instanceof  TxThread) {
+				
+				numReadOps += ((TxThread) runnables[threadNum]).readOps;
+				numWriteOps += ((TxThread) runnables[threadNum]).writeOps;
+				aborts += ((TxThread) runnables[threadNum]).aborts;
+			}
+			
+			else {
+				numReadOps += ((NonTxThread) runnables[threadNum]).readOps;
+				numWriteOps += ((NonTxThread) runnables[threadNum]).writeOps;
+				aborts += ((NonTxThread) runnables[threadNum]).aborts;
+			}
 		}
 		total = numReadOps + numWriteOps;
 		throughputOps = (long) ((double) total / elapsedTime);

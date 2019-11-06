@@ -10,12 +10,16 @@ public class RunnableFactory {
 	
 	private Random rand = new Random();
 	
-	public Runnable getInstance(int myThreadNum, Skiplist<Integer, Object> bench, CountDownLatch latch) {
+	public Runnable getTxInstance(int myThreadNum, Skiplist<Integer, Object> bench, CountDownLatch latch) {
 
 		if (rand.nextDouble() < Parameters.ROTxFrac)
 			return new TxThread(myThreadNum, bench, latch, TxType.ReadOnly);
 		
 		return new TxThread(myThreadNum, bench, latch, TxType.WriteOnly);	
+	}
+	
+	public Runnable getInstance(int myThreadNum, Skiplist<Integer, Object> bench, CountDownLatch latch) {		
+		return new NonTxThread(myThreadNum, bench, latch);	
 	}
 
 }

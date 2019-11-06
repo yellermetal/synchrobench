@@ -25,6 +25,8 @@ public class Parameters {
 
     public static String benchClassName = new String("structures.tdslSkiplist");
     
+    public static String testType = new String("tdsl.ntx");
+    
     public static List<String> paramNames() {
     	return Arrays.asList( "numThreads", "range", "size", "minTxOps", "minNonTxOps", "ReadOnlyFrac" );
     }

@@ -5,6 +5,7 @@ import sun.misc.Unsafe;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 
 /**
  * Interface of a Skiplist
@@ -87,7 +88,7 @@ public class LinkedList implements Iterable<Object> {
         return pred;
     }
 
-    private Object getVal(LNode n, LocalStorage localStorage) {
+    private Object getVal(LNode n, LocalStorage localStorage) { 	
         WriteElement we = localStorage.writeSet.get(n);
         if (we != null) {
             return we.val;
@@ -904,17 +905,15 @@ public class LinkedList implements Iterable<Object> {
             	LNode next;
                 while (true) {
 
-                    if (pred.isLocked()) {
+                    if (pred.isLocked())
                         continue;
-                    }
-
+                   
                     unsafe.loadFence();
                     next = pred.next;
                     unsafe.loadFence();
 
-                    if (pred.isLockedOrDeleted()) {
+                    if (pred.isLocked() || (next != null && next.isDeleted()))
                         continue;
-                    }
 
                     return next;
                 }
@@ -958,6 +957,8 @@ public class LinkedList implements Iterable<Object> {
 			@Override
 			public Object next() {
 				node = this.getNext(node);
+				if (node == null)
+    	        	throw new NoSuchElementException();
             	return node.val;
 			}
     		
@@ -1032,6 +1033,10 @@ public class LinkedList implements Iterable<Object> {
     	    public Object next() {
     	   			          	
     	        node = getNext(node, localStorage);
+    	        
+    	        if (node == null)
+    	        	throw new NoSuchElementException();
+    	        
     	        localStorage.readSet.add(node);
     	    	return getVal(node, localStorage);
     	    }
