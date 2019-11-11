@@ -63,6 +63,6 @@ public interface Skiplist<K, V> {
 	/**
      * @return  A RangeIterator Object which supports range queries. 
      */
-	public RangeIterator<V> iterator();
+	public RangeIterator<V> iterator(boolean atomic);
 	
 }

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
+import benchmark.TxThread.TxType;
 import structures.Skiplist;
 
 /**
@@ -23,9 +24,9 @@ public class Test {
 	public static final String VERSION = "29-10-2019";
 
 	/* The array of threads executing the benchmark */
-	private Thread[] threads = new Thread[Parameters.numThreads];
+	private Thread[] threads;
 	/* The array of runnable thread codes */
-	private Runnable[] runnables = new Runnable[Parameters.numThreads];
+	private Runnable[] runnables;
 	/* The observed duration of the benchmark */
 	private double elapsedTime = 0;
 	/* The throughput */
@@ -43,8 +44,6 @@ public class Test {
 	private long aborts = 0;
 	/* The instance of the benchmark */
 	protected Skiplist<Integer, Object> skiplistBench = null;
-	
-	private RunnableFactory runnableFactory = new RunnableFactory();
 	private CountDownLatch latch;
 
 	
@@ -144,19 +143,30 @@ public class Test {
 	 */
 	private void initThreads() throws InterruptedException {
 		
-		latch = new CountDownLatch(1);		
-		for (int threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
-			switch (Parameters.testType) {
-				case "tdsl.tx":
-					runnables[threadNum] = runnableFactory.getTxInstance(threadNum, skiplistBench, latch);
-					break;
-				case "tdsl.ntx":
-					runnables[threadNum] = runnableFactory.getInstance(threadNum, skiplistBench, latch);
-					break;
-				default:
-					System.err.println("Wrong test type");
-					System.exit(0);
-			}		
+		latch = new CountDownLatch(1);
+		threads = new Thread[Parameters.numThreads];
+		runnables = new Runnable[Parameters.numThreads];
+		
+		int tx_ind = (int) Math.ceil(Parameters.numThreads * Parameters.TxNum);
+		
+		assert Parameters.ROTxFrac < 0.5;
+		int read_only_ind = (int) Math.floor(tx_ind * Parameters.ROTxFrac);
+		
+		int threadNum = 0;
+		for (; threadNum < tx_ind; threadNum++) {
+			
+			if (threadNum < read_only_ind)
+				runnables[threadNum] = new TxThread(threadNum, skiplistBench, latch, TxType.ReadOnly);
+			else if (threadNum < 2*read_only_ind)
+				runnables[threadNum] = new TxThread(threadNum, skiplistBench, latch, TxType.WriteOnly);
+			else
+				runnables[threadNum] = new TxThread(threadNum, skiplistBench, latch, TxType.ReadWrite);
+				
+			threads[threadNum] = new Thread(runnables[threadNum]);
+		}
+		
+		for (; threadNum < Parameters.numThreads; threadNum++) {
+			runnables[threadNum] = new NonTxThread(threadNum, skiplistBench, latch);						
 			threads[threadNum] = new Thread(runnables[threadNum]);
 		}
 
@@ -207,7 +217,7 @@ public class Test {
 						|| currentArg.equals("-t"))
 					Parameters.numThreads = Integer.parseInt(optionValue);
 				else if (currentArg.equals("--size")
-						|| currentArg.equals("-i"))
+						|| currentArg.equals("-s"))
 					Parameters.size = Integer.parseInt(optionValue);
 				else if (currentArg.equals("--range")
 						|| currentArg.equals("-r"))
@@ -215,17 +225,19 @@ public class Test {
 				else if (currentArg.equals("--benchmark")
 						|| currentArg.equals("-b"))
 					Parameters.benchClassName = "structures." + optionValue;
-				else if (currentArg.equals("--type"))
-					Parameters.testType = optionValue;
+				else if (currentArg.equals("--atomic"))
+					Parameters.AtomicIterator = Boolean.parseBoolean(optionValue);
 				else if (currentArg.equals("--iterations")
 						|| currentArg.equals("-n"))
 					Parameters.iterations = Integer.parseInt(optionValue);
-				else if (currentArg.equals("--minTxOps"))
-					Parameters.minTxOps = Integer.parseInt(optionValue);
-				else if (currentArg.equals("--minNonTxOps"))
-					Parameters.minNonTxOps = Integer.parseInt(optionValue);
+				else if (currentArg.equals("--numOps"))
+					Parameters.numOps = Integer.parseInt(optionValue);
 				else if (currentArg.equals("--ReadOnlyFrac"))
 					Parameters.ROTxFrac = Double.parseDouble(optionValue);
+				else if (currentArg.equals("--ReadWriteRatio"))
+					Parameters.ReadWriteRatio = Double.parseDouble(optionValue);
+				else if (currentArg.equals("--TxNum"))
+					Parameters.TxNum = Double.parseDouble(optionValue);
 				
 			} catch (IndexOutOfBoundsException e) {
 				System.err.println("Missing value after option: " + currentArg
@@ -267,89 +279,18 @@ public class Test {
 		System.out.println();
 	}
 
-	/**
-	 * Print the benchmark usage on the standard output
-	 */
-	/*
-	private void printUsage() {
-		String syntax = "Usage:\n"
-				+ "java synchrobench.benchmark.Test [options] [-- stm-specific options]\n\n"
-				+ "Options:\n"
-				+ "\t-v            -- print detailed statistics (default: "
-				+ Parameters.detailedStats
-				+ ")\n"
-				+ "\t-t thread-num -- set the number of threads (default: "
-				+ Parameters.numThreads
-				+ ")\n"
-				+ "\t-u updates    -- set the number of threads (default: "
-				+ Parameters.numWrites
-				+ ")\n"
-				+ "\t-a writeAll   -- set the percentage of composite updates (default: "
-				+ Parameters.numWriteAlls
-				+ ")\n"
-				+ "\t-s snapshot   -- set the percentage of composite read-only operations (default: "
-				+ Parameters.numSnapshots
-				+ ")\n"
-				+ "\t-r range      -- set the element range (default: "
-				+ Parameters.range
-				+ ")\n"
-				+ "\t-b benchmark  -- set the benchmark (default: "
-				+ Parameters.benchClassName
-				+ ")\n"
-				+ "\t-i size       -- set the datastructure initial size (default: "
-				+ Parameters.size
-				+ ")\n"
-				+ "\t-n iterations -- set the bench iterations in the same JVM (default: "
-				+ Parameters.iterations
-				+ ")\n"
-				+ "\t-W warmup     -- set the JVM warmup length, in seconds (default: "
-				+ Parameters.warmUp + ").";
-		System.err.println(syntax);
-	}*/
-
-	/**
-	 * Print the parameters that have been given as an input to the benchmark
-	 */
-	/*
-	private void printParams() {
-		String params = "Benchmark parameters" + "\n" + "--------------------"
-				+ "\n" + "  Detailed stats:          \t"
-				+ (Parameters.detailedStats ? "enabled" : "disabled")
-				+ "\n"
-				+ "  Number of threads:       \t"
-				+ Parameters.numThreads
-				+ "\n"
-				+ "  Write ratio:             \t"
-				+ Parameters.numWrites
-				+ " %\n"
-				+ "  WriteAll ratio:          \t"
-				+ Parameters.numWriteAlls
-				+ " %\n"
-				+ "  Snapshot ratio:          \t"
-				+ Parameters.numSnapshots
-				+ " %\n"
-				+ "  Size:                    \t"
-				+ Parameters.size
-				+ " elts\n"
-				+ "  Range:                   \t"
-				+ Parameters.range
-				+ " elts\n"
-				+ "  WarmUp:                  \t"
-				+ Parameters.warmUp
-				+ " s\n"
-				+ "  Iterations:              \t"
-				+ Parameters.iterations
-				+ "\n"
-				+ "  Benchmark:               \t"
-				+ Parameters.benchClassName;
-		System.out.println(params);
-	}*/
 
 	private CsvWriter initCSV() throws IOException {
 		
-		String path = System.getProperty("user.dir") + File.separator + 
-													   Parameters.benchClassName + 
-													   '_' + Parameters.testType + ".csv";
+		String filename = Parameters.benchClassName;
+		if (Parameters.AtomicIterator)
+			filename += "_AtomicIter";
+		else
+			filename += "_NonAtomicIter";
+		
+		filename += ".csv";
+		
+		String path = System.getProperty("user.dir") + File.separator + filename;
 		
 		boolean exists = (new File(path)).exists();
 			

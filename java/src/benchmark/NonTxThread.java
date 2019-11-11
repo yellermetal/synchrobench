@@ -4,7 +4,6 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
 import structures.Skiplist;
-import transactionLib.RangeIterator;
 
 public class NonTxThread implements Runnable {
 
@@ -37,22 +36,14 @@ public class NonTxThread implements Runnable {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-
-		RangeIterator<Object> iter = bench.iterator();
-		iter.init_upTo(rand.nextInt(Parameters.range));
-		while(iter.hasNext()) {
-			readOps++;
-			iter.next();
-		}
-
 		
-		for (int op = 0; op + readOps < Parameters.minNonTxOps; op++) {
+		while(readOps < Parameters.numOps * Parameters.ReadWriteRatio) {
 			bench.containsKey(rand.nextInt(Parameters.range));
 			readOps++;
 		}
 		
-		for (int op = 0; op < Parameters.minNonTxOps; op++) {
-			bench.put(rand.nextInt(Parameters.range), String.valueOf(op));
+		while (writeOps < Parameters.numOps * (1-Parameters.ReadWriteRatio)) {
+			bench.put(rand.nextInt(Parameters.range), String.valueOf(writeOps));
 			writeOps++;
 		}
 

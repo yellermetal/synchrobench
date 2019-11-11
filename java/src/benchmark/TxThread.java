@@ -43,17 +43,18 @@ public class TxThread extends Transaction {
 	@Override
 	public void execute() throws AbortException {
 		
-		aborts++;
-		
+		reboot();
+		RangeIterator<Object> iter = bench.iterator(Parameters.AtomicIterator);
+		iter.init();
+			
 		if (txType == TxType.ReadOnly || txType == TxType.ReadWrite) {
-			RangeIterator<Object> iter = bench.iterator();
-			iter.init_upTo(rand.nextInt(Parameters.range));
-			while(iter.hasNext()) {
+			while (iter.hasNext() && readOps < Parameters.numOps * Parameters.ReadWriteRatio) {
 				readOps++;
-				iter.next();
+				iter.hasNext();
+				readOps++;
 			}
 			
-			for (int op = 0; op + readOps < Parameters.minTxOps; op++) {
+			while(readOps < Parameters.numOps * Parameters.ReadWriteRatio) {
 				bench.containsKey(rand.nextInt(Parameters.range));
 				readOps++;
 			}
@@ -61,11 +62,17 @@ public class TxThread extends Transaction {
 			
 		if (txType == TxType.WriteOnly || txType == TxType.ReadWrite) {
 			
-			for (int op = 0; op < Parameters.minTxOps; op++) {
-				bench.put(rand.nextInt(Parameters.range), String.valueOf(op));
+			while (writeOps < Parameters.numOps * (1-Parameters.ReadWriteRatio)) {
+				bench.put(rand.nextInt(Parameters.range), String.valueOf(writeOps));
 				writeOps++;
 			}
 		}
 		System.out.println("Thread #" + myThreadNum + " finished.");
+	}
+	
+	private void reboot() {
+		aborts++;
+		readOps = 0;
+		writeOps = 0;
 	}
 }

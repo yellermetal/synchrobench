@@ -892,6 +892,9 @@ public class LinkedList implements Iterable<Object> {
         }
     }
 
+    public RangeIterator<Object> iterator() throws TXLibExceptions.AbortException {
+    	return iterator(true);
+    }
 
     private RangeIterator<Object> iteratorSingleton() {
     	
@@ -968,12 +971,12 @@ public class LinkedList implements Iterable<Object> {
     /**
      * @return  A RangeIterator Object which supports range queries. 
      */
-	public RangeIterator<Object> iterator()  throws TXLibExceptions.AbortException {
+	public RangeIterator<Object> iterator(boolean atomic)  throws TXLibExceptions.AbortException {
 		
 		LocalStorage localStorage = TX.lStorage.get();
 
         // SINGLETON
-        if (!localStorage.TX) {
+        if (!localStorage.TX || !atomic) {
             return iteratorSingleton();
         }
         // TX
