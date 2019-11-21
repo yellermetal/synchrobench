@@ -270,7 +270,7 @@ public class Test {
 		
 		if (!exists) {
 			
-			ArrayList<String> header = new ArrayList<String> (Arrays.asList("Iteration", "throughputOps", "aborts"));
+			ArrayList<String> header = new ArrayList<String> (Arrays.asList("Iteration", "throughputOps", "aborts", "elapsedTime"));
 			
 			List<String> paramNames = Parameters.paramNames();
 			for (int i = 0; i < paramNames.size(); i++) 
@@ -291,14 +291,16 @@ public class Test {
 		
 		for (int threadNum = 0; threadNum < Parameters.numThreads; threadNum++)
 			aborts += runnables[threadNum].aborts;
+		
+		long elapsedTime = runnables[0].getElapsedTime();
 
-		throughputOps = (long) ((double) Parameters.numOps / runnables[0].getElapsedTime());
+		throughputOps = (long) ((double) Parameters.numOps / elapsedTime);
 		printLine('-');
 		System.out.println("Benchmark statistics");
 		printLine('-');
 		System.out.println("  Throughput (ops/s):      \t" + throughputOps);
 		System.out.println("  Aborts:       		   \t" + aborts);
-		System.out.println("  Elapsed time (s):        \t" + runnables[0].getElapsedTime());
+		System.out.println("  Elapsed time (s):        \t" + elapsedTime);
 		
 		printLine('*');
 		
@@ -312,6 +314,7 @@ public class Test {
 		
 		csvLine.add(String.valueOf(throughputOps));
 		csvLine.add(String.valueOf(aborts));		
+		csvLine.add(String.valueOf(elapsedTime));
 		csvWriter.writeToCsv(csvLine);		
 		
 		csvWriter.flush();
