@@ -26,20 +26,11 @@ public class Test {
 	/* The array of threads executing the benchmark */
 	private Thread[] threads;
 	/* The array of runnable thread codes */
-	private Runnable[] runnables;
-	/* The observed duration of the benchmark */
-	private double elapsedTime = 0;
+	private TxThread[] runnables;
 	/* The throughput */
 	private long throughputOps = 0;
-	private long throughputTxs = 0;
 	/* The iteration */
 	private int currentIteration = 0;
-
-	/* The total number of operations for all threads */
-	private long total = 0;
-	/* The total number of successful operations for all threads */
-	private long numReadOps = 0;
-	private long numWriteOps = 0;
 	/* The total number of aborts */
 	private long aborts = 0;
 	/* The instance of the benchmark */
@@ -145,7 +136,7 @@ public class Test {
 		
 		latch = new CountDownLatch(1);
 		threads = new Thread[Parameters.numThreads];
-		runnables = new Runnable[Parameters.numThreads];
+		runnables = new TxThread[Parameters.numThreads];
 		
 		
 		int threadNum = 0;
@@ -168,16 +159,12 @@ public class Test {
 	 */
 	private void execute() throws InterruptedException {
 		
-		long startTime;
-		startTime = System.currentTimeMillis();
 		for (Thread thread : threads)
 			thread.start();
 		latch.countDown();
 		for (Thread thread : threads)
 			thread.join();
 
-		long endTime = System.currentTimeMillis();
-		elapsedTime = ((double) (endTime - startTime)) / 1000.0;
 	}
 
 	/* ----------------------------- Input/Output Section --------------------------- */
@@ -283,8 +270,7 @@ public class Test {
 		
 		if (!exists) {
 			
-			ArrayList<String> header = new ArrayList<String> (Arrays.asList("Iteration", "throughputOps", "throughputTxs", 
-					"aborts", "elapsedTime", "numReadOps", "numWriteOps", "operations"));
+			ArrayList<String> header = new ArrayList<String> (Arrays.asList("Iteration", "throughputOps", "aborts"));
 			
 			List<String> paramNames = Parameters.paramNames();
 			for (int i = 0; i < paramNames.size(); i++) 
@@ -302,34 +288,17 @@ public class Test {
 	 * @throws IOException 
 	 */
 	private void printBasicStats() throws IOException {
-		for (short threadNum = 0; threadNum < Parameters.numThreads; threadNum++) {
+		
+		for (int threadNum = 0; threadNum < Parameters.numThreads; threadNum++)
+			aborts += runnables[threadNum].aborts;
 
-			if (runnables[threadNum] instanceof  TxThread) {
-				
-				numReadOps += ((TxThread) runnables[threadNum]).readOps;
-				numWriteOps += ((TxThread) runnables[threadNum]).writeOps;
-				aborts += ((TxThread) runnables[threadNum]).aborts;
-			}
-			
-			else {
-				numReadOps += ((NonTxThread) runnables[threadNum]).readOps;
-				numWriteOps += ((NonTxThread) runnables[threadNum]).writeOps;
-				aborts += ((NonTxThread) runnables[threadNum]).aborts;
-			}
-		}
-		total = numReadOps + numWriteOps;
-		throughputOps = (long) ((double) total / elapsedTime);
-		throughputTxs = (long) ((double) Parameters.numThreads / elapsedTime);
+		throughputOps = (long) ((double) Parameters.numOps / runnables[0].getElapsedTime());
 		printLine('-');
 		System.out.println("Benchmark statistics");
 		printLine('-');
 		System.out.println("  Throughput (ops/s):      \t" + throughputOps);
-		System.out.println("  Throughput (Tx/s):       \t" + throughputTxs);
 		System.out.println("  Aborts:       		   \t" + aborts);
-		System.out.println("  Elapsed time (s):        \t" + elapsedTime);
-		System.out.println("  Number of ReadOps:       \t" + numReadOps);
-		System.out.println("  Number of WriteOps:      \t" + numWriteOps);
-		System.out.println("  Operations:              \t" + total + "\t( 100 %)");
+		System.out.println("  Elapsed time (s):        \t" + runnables[0].getElapsedTime());
 		
 		printLine('*');
 		
@@ -342,13 +311,7 @@ public class Test {
 			csvLine.add(i + 1, paramValues.get(i));
 		
 		csvLine.add(String.valueOf(throughputOps));
-		csvLine.add(String.valueOf(throughputTxs));
-		csvLine.add(String.valueOf(aborts));
-		csvLine.add(String.valueOf(elapsedTime));
-		csvLine.add(String.valueOf(numReadOps));
-		csvLine.add(String.valueOf(numWriteOps));
-		csvLine.add(String.valueOf(total));
-		
+		csvLine.add(String.valueOf(aborts));		
 		csvWriter.writeToCsv(csvLine);		
 		
 		csvWriter.flush();
@@ -356,12 +319,7 @@ public class Test {
 	}
 	
 	private void resetStats() {
-		elapsedTime = 0;
 		throughputOps = 0;
-		throughputTxs = 0;		
-		total = 0;
-		numReadOps = 0;
-		numWriteOps = 0;
 		aborts = 0;
 	}
 

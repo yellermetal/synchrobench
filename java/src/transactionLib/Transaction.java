@@ -8,9 +8,12 @@ import transactionLib.TXLibExceptions;
 
 public abstract class Transaction implements Runnable {
 
-	CountDownLatch latch = null;
+	private long elapsedTime = 0;
+	private long startTime = 0;
+	private CountDownLatch latch = null;
 	
 	public Transaction(CountDownLatch latch) {
+		startTime = System.currentTimeMillis();
 		this.latch = latch;
 	}
 	
@@ -39,6 +42,12 @@ public abstract class Transaction implements Runnable {
             } 
             break; 
         }
+        
+        elapsedTime = System.currentTimeMillis() - startTime;
+    }
+    
+    public long getElapsedTime() {
+    	return elapsedTime;
     }
     
     public abstract void execute() throws TXLibExceptions.AbortException;
