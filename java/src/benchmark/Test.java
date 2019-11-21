@@ -147,26 +147,15 @@ public class Test {
 		threads = new Thread[Parameters.numThreads];
 		runnables = new Runnable[Parameters.numThreads];
 		
-		int tx_ind = (int) Math.ceil(Parameters.numThreads * Parameters.TxNum);
-		
-		assert Parameters.ROTxFrac < 0.5;
-		int read_only_ind = (int) Math.floor(tx_ind * Parameters.ROTxFrac);
 		
 		int threadNum = 0;
-		for (; threadNum < tx_ind; threadNum++) {
-			
-			if (threadNum < read_only_ind)
-				runnables[threadNum] = new TxThread(threadNum, skiplistBench, latch, TxType.ReadOnly);
-			else if (threadNum < 2*read_only_ind)
-				runnables[threadNum] = new TxThread(threadNum, skiplistBench, latch, TxType.WriteOnly);
-			else
-				runnables[threadNum] = new TxThread(threadNum, skiplistBench, latch, TxType.ReadWrite);
-				
-			threads[threadNum] = new Thread(runnables[threadNum]);
-		}
+		runnables[threadNum] = new TxThread(threadNum, skiplistBench, latch, TxType.ReadOnly);
+		threads[threadNum] = new Thread(runnables[threadNum]);
+		threadNum++;
 		
 		for (; threadNum < Parameters.numThreads; threadNum++) {
-			runnables[threadNum] = new NonTxThread(threadNum, skiplistBench, latch);						
+		
+			runnables[threadNum] = new TxThread(threadNum, skiplistBench, latch, TxType.WriteOnly);			
 			threads[threadNum] = new Thread(runnables[threadNum]);
 		}
 
@@ -225,19 +214,15 @@ public class Test {
 				else if (currentArg.equals("--benchmark")
 						|| currentArg.equals("-b"))
 					Parameters.benchClassName = "structures." + optionValue;
-				else if (currentArg.equals("--atomic"))
+				else if (currentArg.equals("--atomic")
+					    || currentArg.equals("-a"))
 					Parameters.AtomicIterator = Boolean.parseBoolean(optionValue);
 				else if (currentArg.equals("--iterations")
 						|| currentArg.equals("-n"))
 					Parameters.iterations = Integer.parseInt(optionValue);
-				else if (currentArg.equals("--numOps"))
+				else if (currentArg.equals("--numOps")
+						|| currentArg.equals("-o"))
 					Parameters.numOps = Integer.parseInt(optionValue);
-				else if (currentArg.equals("--ReadOnlyFrac"))
-					Parameters.ROTxFrac = Double.parseDouble(optionValue);
-				else if (currentArg.equals("--ReadWriteRatio"))
-					Parameters.ReadWriteRatio = Double.parseDouble(optionValue);
-				else if (currentArg.equals("--TxNum"))
-					Parameters.TxNum = Double.parseDouble(optionValue);
 				
 			} catch (IndexOutOfBoundsException e) {
 				System.err.println("Missing value after option: " + currentArg

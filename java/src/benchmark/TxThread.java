@@ -47,27 +47,24 @@ public class TxThread extends Transaction {
 		RangeIterator<Object> iter = bench.iterator(Parameters.AtomicIterator);
 		iter.init();
 			
-		if (txType == TxType.ReadOnly || txType == TxType.ReadWrite) {
-			while (iter.hasNext() && readOps < Parameters.numOps * Parameters.ReadWriteRatio) {
+		if (txType == TxType.ReadOnly) {
+			while (iter.hasNext() && readOps < Parameters.numOps) {
 				readOps++;
 				iter.hasNext();
-				readOps++;
+
 			}
 			
-			while(readOps < Parameters.numOps * Parameters.ReadWriteRatio) {
-				bench.containsKey(rand.nextInt(Parameters.range));
-				readOps++;
-			}
 		}
 			
-		if (txType == TxType.WriteOnly || txType == TxType.ReadWrite) {
+		if (txType == TxType.WriteOnly) {
 			
-			while (writeOps < Parameters.numOps * (1-Parameters.ReadWriteRatio)) {
+			while (writeOps < Parameters.numOps) {
 				bench.put(rand.nextInt(Parameters.range), String.valueOf(writeOps));
+				writeOps++;
+				bench.remove(rand.nextInt(Parameters.range));
 				writeOps++;
 			}
 		}
-		System.out.println("Thread #" + myThreadNum + " finished.");
 	}
 	
 	private void reboot() {

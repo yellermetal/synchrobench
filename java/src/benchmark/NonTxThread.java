@@ -37,12 +37,12 @@ public class NonTxThread implements Runnable {
 			e.printStackTrace();
 		}
 		
-		while(readOps < Parameters.numOps * Parameters.ReadWriteRatio) {
+		while(readOps < Parameters.numOps) {
 			bench.containsKey(rand.nextInt(Parameters.range));
 			readOps++;
 		}
 		
-		while (writeOps < Parameters.numOps * (1-Parameters.ReadWriteRatio)) {
+		while (writeOps < Parameters.numOps ) {
 			bench.put(rand.nextInt(Parameters.range), String.valueOf(writeOps));
 			writeOps++;
 		}
