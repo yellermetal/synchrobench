@@ -289,7 +289,7 @@ public class Test {
 	 */
 	private void printBasicStats() throws IOException {
 		
-		for (int threadNum = 0; threadNum < Parameters.numThreads; threadNum++)
+		for (int threadNum = 1; threadNum < Parameters.numThreads; threadNum++)
 			aborts += runnables[threadNum].aborts;
 		
 		long elapsedTime = runnables[0].getElapsedTime();
